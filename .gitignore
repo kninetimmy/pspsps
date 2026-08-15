@@ -4,6 +4,7 @@ agent_docs/PROJECT_LEDGER.md
 
 .venv/
 *.jpg
+!tests/fixture-cat.jpg
 *.mkv
 yolov8n.pt
 pending/
