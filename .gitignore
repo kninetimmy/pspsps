@@ -7,7 +7,7 @@ __pycache__/
 *.jpg
 !tests/fixture-cat.jpg
 *.mkv
-yolo11m.pt
+yolo*.pt
 pending/
 .orchestrator/worktrees/
 .orchestrator/config.local.toml

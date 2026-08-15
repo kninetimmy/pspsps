@@ -56,7 +56,7 @@ pspsps/
   CLAUDE.md          repo instructions (stack, run/test commands)
   pspsps.py          the whole thing — single script, ~150 lines
   requirements.txt   ultralytics
-  .gitignore         .venv/, *.jpg, *.mkv, yolo11m.pt
+  .gitignore         .venv/, *.jpg, *.mkv, yolo*.pt
   tests/fixture-cat.jpg   one known-cat frame for the self-test
 ```
 
