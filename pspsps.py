@@ -11,6 +11,7 @@ from ultralytics import YOLO
 
 HERE = Path(__file__).resolve().parent
 FRAME = HERE / "frame.jpg"                  # local scratch: latest frame only
+WEIGHTS = HERE / "yolov8n.pt"               # script-relative: another cwd, same weights
 # fixture: Wikimedia Commons "Cat August 2010-4.jpg" by Alvesgaspar, CC BY-SA 3.0
 FIXTURE = HERE / "tests" / "fixture-cat.jpg"
 
@@ -57,7 +58,7 @@ def top_cat(image: Path) -> float:
     """Highest 'cat' confidence YOLOv8n finds in image, 0.0 if none."""
     if not image.exists():
         raise RuntimeError(f"no such image: {image}")
-    result = YOLO("yolov8n.pt")(str(image), classes=[CAT_CLASS], verbose=False)[0]
+    result = YOLO(WEIGHTS)(str(image), classes=[CAT_CLASS], verbose=False)[0]
     return max((float(b.conf) for b in result.boxes), default=0.0)
 
 
