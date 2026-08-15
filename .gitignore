@@ -1,0 +1,9 @@
+.memhub/
+agent_docs/PROJECT.md
+agent_docs/PROJECT_LEDGER.md
+
+.venv/
+*.jpg
+*.mkv
+yolov8n.pt
+pending/
