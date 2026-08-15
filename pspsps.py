@@ -1,16 +1,20 @@
 #!/usr/bin/env python3
-"""pspsps - the kitty detector. M1: capture a frame, print a YOLO cat verdict."""
+"""pspsps - the kitty detector. M2: 5-minute loop, once-per-visit alert, Drive copy."""
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
+import time
+from datetime import datetime
 from pathlib import Path
-
-from ultralytics import YOLO
 
 HERE = Path(__file__).resolve().parent
 FRAME = HERE / "frame.jpg"                  # local scratch: latest frame only
+WEIGHTS = HERE / "yolov8n.pt"               # script-relative: another cwd, same weights
+PENDING = HERE / "pending"                  # where frames land when Drive is missing
+DRIVE = Path("G:/My Drive/kitty")
 # fixture: Wikimedia Commons "Cat August 2010-4.jpg" by Alvesgaspar, CC BY-SA 3.0
 FIXTURE = HERE / "tests" / "fixture-cat.jpg"
 
@@ -21,6 +25,17 @@ LIFT = "eq=gamma=2.4:saturation=1.2"        # gamma-only; brightness= grays the 
 CAT_CLASS = 15                              # COCO 'cat'
 SURE = 0.60                                 # >= this: it's the cat
 BORDERLINE = 0.25                           # >= this but < SURE: M3 will ask Claude
+
+INTERVAL = 300                              # seconds between passes
+LEAVE_AFTER = 2                             # misses before she's gone (1 = behind a cushion)
+AWAY, PRESENT = "away", "present"
+DEVICES = ("ipad165", "iphone182")          # Taildrop targets, first one online wins
+
+_model = None                               # loaded on first detect, reused every pass
+
+
+def log(msg: str) -> None:
+    print(f"{datetime.now():%H:%M:%S} {msg}", flush=True)
 
 
 def capture(dest: Path) -> None:
@@ -53,12 +68,16 @@ def capture(dest: Path) -> None:
         )
 
 
-def top_cat(image: Path) -> float:
-    """Highest 'cat' confidence YOLOv8n finds in image, 0.0 if none."""
+def detect(image: Path) -> tuple:
+    """(highest 'cat' confidence, YOLO result) for image. Confidence 0.0 if no cat."""
+    global _model
     if not image.exists():
         raise RuntimeError(f"no such image: {image}")
-    result = YOLO("yolov8n.pt")(str(image), classes=[CAT_CLASS], verbose=False)[0]
-    return max((float(b.conf) for b in result.boxes), default=0.0)
+    if _model is None:
+        from ultralytics import YOLO       # deferred: torch is slow, and the state
+        _model = YOLO(WEIGHTS)             # test has no business importing it
+    result = _model(str(image), classes=[CAT_CLASS], verbose=False)[0]
+    return max((float(b.conf) for b in result.boxes), default=0.0), result
 
 
 def verdict(conf: float) -> bool:
@@ -74,6 +93,85 @@ def verdict(conf: float) -> bool:
     return False
 
 
+def step(state: str, misses: int, detected: bool) -> tuple:
+    """One tick of the once-per-visit machine -> (state, misses, alert)."""
+    if detected:
+        return PRESENT, 0, state == AWAY
+    if state == PRESENT and misses + 1 < LEAVE_AFTER:
+        return PRESENT, misses + 1, False
+    return AWAY, 0, False
+
+
+def pick_device(status: str) -> str | None:
+    """First DEVICES entry `tailscale status` shows as online, None if all are down."""
+    up = {
+        fields[1]
+        for fields in (line.split(maxsplit=4) for line in status.splitlines())
+        if len(fields) == 5 and not fields[4].startswith("offline")
+    }
+    return next((d for d in DEVICES if d in up), None)
+
+
+def archive(frame: Path) -> Path:
+    """Copy the frame to Drive as kitty-<stamp>.jpg, or to pending/ if Drive is gone."""
+    dest_dir = DRIVE
+    if not DRIVE.parent.is_dir():
+        dest_dir = PENDING
+        log(f"{DRIVE.parent} not mounted (Drive app not running?) - saving to {PENDING}")
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest = dest_dir / f"kitty-{datetime.now():%Y%m%d-%H%M%S}.jpg"
+    shutil.copyfile(frame, dest)
+    return dest
+
+
+def taildrop(frame: Path) -> None:
+    """Send the frame to the first online device. Both offline: log it and move on."""
+    try:
+        p = subprocess.run(["tailscale", "status"], capture_output=True, text=True, timeout=30)
+    except FileNotFoundError:
+        raise RuntimeError("tailscale not found on PATH")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("tailscale status timed out after 30s")
+    device = pick_device(p.stdout)
+    if device is None:
+        log(f"none of {', '.join(DEVICES)} online - no Taildrop, the Drive copy stands")
+        return
+    cmd = ["tailscale", "file", "cp", str(frame), f"{device}:"]
+    try:
+        p = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    except subprocess.TimeoutExpired:
+        raise RuntimeError(f"tailscale file cp to {device} timed out after 120s")
+    if p.returncode != 0:
+        raise RuntimeError(f"tailscale file cp to {device} exit {p.returncode}: "
+                           + (p.stderr or "").strip())
+    log(f"taildropped to {device}")
+
+
+def watch() -> int:
+    """Capture + detect every INTERVAL until Ctrl+C, alerting once per visit."""
+    state, misses = AWAY, 0
+    log(f"watching every {INTERVAL // 60} min - Ctrl+C to stop")
+    try:
+        while True:
+            try:
+                capture(FRAME)
+                conf, result = detect(FRAME)
+                found = verdict(conf)
+                state, misses, alert = step(state, misses, found)
+                if found:
+                    result.save(filename=str(FRAME))    # YOLO's box, over the scratch frame
+                    log(f"saved {archive(FRAME)}")
+                    if alert:
+                        taildrop(FRAME)
+            except RuntimeError as e:
+                # a bad pass is not evidence she left: log it, leave the state alone
+                log(f"pass failed, retrying next tick: {e}")
+            time.sleep(INTERVAL)
+    except KeyboardInterrupt:
+        log("stopped")
+        return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--once", action="store_true",
@@ -83,7 +181,7 @@ def main() -> int:
     args = ap.parse_args()
 
     if args.selftest:
-        found = verdict(top_cat(args.selftest))
+        found = verdict(detect(args.selftest)[0])
         if not found:
             print(f"selftest FAILED: no cat in {args.selftest}", file=sys.stderr)
         return 0 if found else 1
@@ -94,10 +192,10 @@ def main() -> int:
         except RuntimeError as e:
             print(f"capture failed: {e}", file=sys.stderr)
             return 1
-        verdict(top_cat(FRAME))
+        verdict(detect(FRAME)[0])
         return 0
 
-    ap.error("M1 is --once or --selftest; the 5-minute loop lands in M2")
+    return watch()
 
 
 if __name__ == "__main__":

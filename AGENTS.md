@@ -21,6 +21,7 @@ ffmpeg and tailscale are invoked as subprocesses. Claude runs headless via
 
 - Run once (debug): `python pspsps.py --once`
 - Self-test: `python pspsps.py --selftest` (asserts a cat in `tests/fixture-cat.jpg`)
+- State test: `python tests/test_state.py` (once-per-visit logic; no camera, no torch)
 - Normal run: `python pspsps.py` — loops every 5 min until Ctrl+C
 
 <!-- orchestrator:managed:start version=1 -->
