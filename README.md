@@ -1,7 +1,7 @@
 # pspsps
 
 Named after the universal cat-summoning sound. It watches the couch through a
-webcam, runs a local YOLOv8n model on each frame, and sends the picture to my
+webcam, runs a local YOLO11m model at 960px on each frame, and sends the picture to my
 iPad when the cat turns up — once per visit, not once every five minutes.
 
 The whole thing is one script (`pspsps.py`), one pip dependency
@@ -29,7 +29,7 @@ capture flags in particular were tuned against a real dark living room (see
    3 seconds first so auto-exposure settles, and applies a gamma lift
    (`eq=gamma=2.4:saturation=1.2`) because the room is dark. The lifted frame is
    what gets detected on.
-2. **Detect** — YOLOv8n, restricted to the COCO `cat` class. Confidence `>= 0.60`
+2. **Detect** — YOLO11m at 960px, restricted to the COCO `cat` class. Confidence `>= 0.60`
    is the cat. Anything below counts as no cat, though the 0.25–0.60 band is
    reported separately as borderline, because that is what M3 will hand to
    Claude.
@@ -74,8 +74,8 @@ Then activate it — `.venv\Scripts\Activate.ps1` in PowerShell,
 python.
 
 Two downloads happen once and are not small: `ultralytics` pulls in the CPU
-build of torch (~2GB), and the first detection fetches the `yolov8n.pt` weights
-(~6MB) into the repo root. Both are cached afterwards, and neither is committed.
+build of torch (~2GB), and the first detection fetches the `yolo11m.pt` weights
+(40,684,120 bytes, ~40.7MB) into the repo root. Both are cached afterwards, and neither is committed.
 
 ## Running
 
@@ -122,4 +122,4 @@ yet. `PLAN.md` has the design.
 by Alvesgaspar, from Wikimedia Commons, used under
 [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/).
 
-Detection is [Ultralytics](https://github.com/ultralytics/ultralytics) YOLOv8n.
+Detection is [Ultralytics](https://github.com/ultralytics/ultralytics) YOLO11m at 960px.

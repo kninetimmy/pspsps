@@ -1,7 +1,8 @@
 # pspsps
 
 The kitty detector: watches the couch webcam, detects the cat with a local
-YOLOv8n model, alerts once per visit via Taildrop + Google Drive copy.
+YOLO11m model at 960px (`yolo11m.pt`, 40,684,120 bytes / ~40.7MB), alerts once per
+visit via Taildrop + Google Drive copy.
 Design is locked in `PLAN.md` — read it before changing anything.
 
 ## Session Continuity

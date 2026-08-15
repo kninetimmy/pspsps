@@ -7,7 +7,7 @@ you when she shows up. Named after the universal cat-summoning sound.
 
 | Decision | Choice |
 |---|---|
-| Detection | Stage 1: local YOLOv8n (`ultralytics`). Stage 2: Claude via `claude -p` headless — uses the Claude Code subscription, **never** the pay-per-token API |
+| Detection | Stage 1: local YOLO11m at 960px (`ultralytics`). Stage 2: Claude via `claude -p` headless — uses the Claude Code subscription, **never** the pay-per-token API |
 | Runtime | Manual start: run `pspsps`, loops until Ctrl+C. No scheduler, no service |
 | Cadence | Snap + detect every 5 minutes |
 | Alerting | Once per visit: first detection alerts, repeats stay quiet until she's been gone 2 consecutive checks |
@@ -27,7 +27,7 @@ you when she shows up. Named after the universal cat-summoning sound.
    - post: `eq=gamma=2.4:saturation=1.2` — gamma-only shadow lift for the dark room.
      Never add `brightness=`; it grays the blacks and looks washed out.
      Run detection on the *lifted* frame (YOLO sees the dark original poorly too).
-2. **Detect** — YOLOv8n, COCO class `cat`:
+2. **Detect** — YOLO11m at 960px, COCO class `cat`:
    - confidence ≥ 0.60 → cat, no question
    - 0.25–0.60 → borderline → ask Claude: `claude -p "Is there a real cat in this
      image? Answer only yes or no." <frame>` — yes counts as cat
@@ -56,7 +56,7 @@ pspsps/
   CLAUDE.md          repo instructions (stack, run/test commands)
   pspsps.py          the whole thing — single script, ~150 lines
   requirements.txt   ultralytics
-  .gitignore         .venv/, *.jpg, *.mkv, yolov8n.pt
+  .gitignore         .venv/, *.jpg, *.mkv, yolo11m.pt
   tests/fixture-cat.jpg   one known-cat frame for the self-test
 ```
 
@@ -79,4 +79,4 @@ is found — the one runnable check that fails if the pipeline breaks.
 - Both Tailscale devices offline → skip Taildrop, Drive copy still happens, log it.
 - Google Drive `G:` not mounted (Drive app not running) → save to a local
   `pending/` folder and log; no sync-retry logic in v1.
-- First run downloads `yolov8n.pt` (~6MB) and torch CPU wheels (~2GB one-time).
+- First run downloads `yolo11m.pt` (40,684,120 bytes, ~40.7MB) and torch CPU wheels (~2GB one-time).
