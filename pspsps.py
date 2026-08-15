@@ -12,7 +12,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 FRAME = HERE / "frame.jpg"                  # local scratch: latest frame only
-WEIGHTS = HERE / "yolov8n.pt"               # script-relative: another cwd, same weights
+WEIGHTS = HERE / "yolo11m.pt"                # script-relative: another cwd, same weights
 PENDING = HERE / "pending"                  # where frames land when Drive is missing
 DRIVE = Path("G:/My Drive/kitty")
 # fixture: Wikimedia Commons "Cat August 2010-4.jpg" by Alvesgaspar, CC BY-SA 3.0
@@ -23,6 +23,7 @@ DEVICE = "video=1080P Pro Stream"
 LIFT = "eq=gamma=2.4:saturation=1.2"        # gamma-only; brightness= grays the blacks
 
 CAT_CLASS = 15                              # COCO 'cat'
+INFERENCE_SIZE = 960                        # YOLO11m inference size
 SURE = 0.60                                 # >= this: it's the cat
 BORDERLINE = 0.25                           # >= this but < SURE: M3 will ask Claude
 
@@ -76,7 +77,7 @@ def detect(image: Path) -> tuple:
     if _model is None:
         from ultralytics import YOLO       # deferred: torch is slow, and the state
         _model = YOLO(WEIGHTS)             # test has no business importing it
-    result = _model(str(image), classes=[CAT_CLASS], verbose=False)[0]
+    result = _model(str(image), classes=[CAT_CLASS], imgsz=INFERENCE_SIZE, verbose=False)[0]
     return max((float(b.conf) for b in result.boxes), default=0.0), result
 
 
